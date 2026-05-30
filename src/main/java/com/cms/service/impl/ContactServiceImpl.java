@@ -1,5 +1,7 @@
 package com.cms.service.impl;
 
+import com.cms.exception.AccessDeniedException;
+import com.cms.exception.ResourceNotFoundException;
 import com.cms.model.dto.ContactDTO;
 import com.cms.model.entity.Contact;
 import com.cms.model.entity.ContactEmail;
@@ -18,7 +20,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,7 +63,7 @@ public class ContactServiceImpl implements ContactService {
         // If no user is found, throw an exception — we can't create a contact
         // without a valid owner.
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
         // Step 2: Convert the incoming ContactDTO into a Contact entity
         // (the format the database understands) using our mapper utility.
@@ -96,12 +97,12 @@ public class ContactServiceImpl implements ContactService {
         // Step 1: Find the contact in the database by its ID.
         // If no contact exists with that ID, throw an exception.
         Contact contact = contactRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Contact not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Contact not found with id: " + id));
 
         // Step 2: Verify that the logged-in user actually owns this contact.
         // If the contact belongs to someone else, deny access immediately.
         if (!contact.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("Access denied: you do not own this contact");
+            throw new AccessDeniedException("You do not have permission to update this contact");
         }
 
         // Step 3: Update all the simple (non-list) fields on the existing entity.
@@ -148,12 +149,8 @@ public class ContactServiceImpl implements ContactService {
             contact.getPhones().addAll(updatedPhones);
         }
 
-        // Step 6: Record the time this update happened.
-        // The @PreUpdate hook in the Contact entity also does this automatically,
-        // but we set it explicitly here as well for clarity.
-        contact.setUpdatedAt(LocalDateTime.now());
-
-        // Step 7: Save the updated contact to the database and convert it to a DTO.
+        // Step 6: Save the updated contact — the @PreUpdate hook in Contact entity
+        // automatically sets updatedAt, so no manual assignment is needed here.
         Contact savedContact = contactRepository.save(contact);
         return contactMapper.toDTO(savedContact);
     }
@@ -172,12 +169,12 @@ public class ContactServiceImpl implements ContactService {
         // Step 1: Find the contact in the database by its ID.
         // Throw an exception if it doesn't exist.
         Contact contact = contactRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Contact not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Contact not found with id: " + id));
 
         // Step 2: Check that the logged-in user owns this contact.
         // If not, deny access — users must not be able to delete each other's contacts.
         if (!contact.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("Access denied: you do not own this contact");
+            throw new AccessDeniedException("You do not have permission to delete this contact");
         }
 
         // Step 3: Delete the contact from the database.
@@ -197,21 +194,22 @@ public class ContactServiceImpl implements ContactService {
      * Fetches a single contact by its database ID.
      * Only the owner of the contact can view it.
      *
-     * Note: @Transactional(readOnly = true) would be ideal here for performance,
-     * but we inherit the class-level @Transactional for simplicity.
+     * readOnly = true tells Hibernate to skip dirty-checking (comparing entity
+     * state before and after the method) — a free performance win for queries.
      */
     @Override
+    @Transactional(readOnly = true)
     public ContactDTO getContactById(Long id, String userEmail) {
 
         // Step 1: Find the contact in the database by its ID.
         // Throw an exception if it doesn't exist.
         Contact contact = contactRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Contact not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Contact not found with id: " + id));
 
         // Step 2: Verify that the logged-in user owns this contact.
         // Prevents one user from reading another user's contacts.
         if (!contact.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("Access denied: you do not own this contact");
+            throw new AccessDeniedException("You do not have permission to view this contact");
         }
 
         // Step 3: Convert the entity to a DTO and return it.
@@ -230,12 +228,13 @@ public class ContactServiceImpl implements ContactService {
      * we return them in "pages" (e.g. 20 at a time) for better performance.
      */
     @Override
+    @Transactional(readOnly = true)
     public Page<ContactDTO> getAllContacts(String userEmail, int page, int size) {
 
         // Step 1: Find the user in the database by email.
         // We need their ID to query only their contacts.
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
         // Step 2: Create a Pageable object that tells Spring Data:
         // - which page number to fetch (0 = first page)
@@ -262,11 +261,12 @@ public class ContactServiceImpl implements ContactService {
      * Returns results as a paginated list.
      */
     @Override
+    @Transactional(readOnly = true)
     public Page<ContactDTO> searchContacts(String userEmail, String keyword, int page, int size) {
 
         // Step 1: Find the user in the database by email so we have their ID.
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
         // Step 2: Create a Pageable object for pagination.
         // No sorting specified here — results come back in database default order.

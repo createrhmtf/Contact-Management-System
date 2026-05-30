@@ -1,5 +1,6 @@
 package com.cms.controller;
 
+import com.cms.exception.ResourceNotFoundException;
 import com.cms.model.dto.UserDTO;
 import com.cms.model.entity.User;
 import com.cms.repository.UserRepository;
@@ -7,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * UserController handles HTTP requests related to the currently logged-in user's
- * own profile — things like viewing or editing their own account details.
+ * own profile — fetching and updating their account details.
  *
  * Base URL: /api/users
  *
- * Note: We only expose actions for the logged-in user's OWN profile.
- * There is no admin "list all users" endpoint here — this keeps things simple and secure.
+ * Security: All endpoints require a valid JWT token (enforced by Spring Security).
+ * Users can only see and edit their OWN profile — no admin list-all-users here.
  */
 @RestController
 @RequestMapping("/api/users")
@@ -29,37 +29,31 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class UserController {
 
-    // UserRepository talks directly to the database to fetch/save User records.
+    // UserRepository talks directly to the database to fetch and save User records.
     private final UserRepository userRepository;
 
-    // PasswordEncoder is injected here so it's available if we ever add a
-    // change-password endpoint in the future. It's already declared as a
-    // @Bean in SecurityConfig so Spring can inject it here automatically.
-    private final PasswordEncoder passwordEncoder;
-
-    // ─── Helper: extract the logged-in user's email from the JWT token ────────
+    // ─── Helper: extract the logged-in user's email from JWT ─────────────────
     //
-    // After a successful login, Spring Security stores the user's email (the
-    // "username" in JWT terms) in the SecurityContext. This helper retrieves it
-    // so we don't repeat the same long line in every endpoint.
+    // After a successful login, Spring Security stores the authenticated user's
+    // email (the "principal name") in the SecurityContext. This helper retrieves
+    // it cleanly without repeating the long call chain in every method.
     private String getCurrentUserEmail() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
-    // ─── Helper: convert a User entity → UserDTO ─────────────────────────────
+    // ─── Helper: convert User entity → UserDTO ────────────────────────────────
     //
-    // We do this mapping manually here (no separate mapper class) because
-    // UserDTO only needs a handful of safe, non-sensitive fields.
-    // The User entity contains passwordHash — we deliberately leave that out.
+    // Maps only the safe, public-facing fields. The entity's passwordHash field
+    // is deliberately excluded — it must never be sent in an API response.
     private UserDTO mapToUserDTO(User user) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setFirstName(user.getFirstName());
-        dto.setLastName(user.getLastName());
-        dto.setEmail(user.getEmail());
-        dto.setPhoneNumber(user.getPhoneNumber());
-        dto.setCreatedAt(user.getCreatedAt());
-        return dto;
+        return UserDTO.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 
     // =========================================================================
@@ -70,33 +64,28 @@ public class UserController {
     /**
      * Returns the profile of the currently authenticated user.
      *
-     * "Me" endpoints are a common REST pattern — instead of requiring the client
-     * to know their own user ID, they simply call /me and Spring Security
-     * identifies who they are from their JWT token.
+     * The "/me" pattern is a standard REST convention — the client doesn't need
+     * to know their own user ID, Spring Security identifies them from the JWT token.
      *
      * Example: GET /api/users/me
      *
-     * @return 200 OK with the user's profile as a UserDTO (no password included)
+     * @return 200 OK with the user's public profile as a UserDTO
      */
     @GetMapping("/me")
     public ResponseEntity<UserDTO> getMyProfile() {
 
-        // Step 1: Get the email address of the currently logged-in user.
-        // This comes from the JWT token that was sent with the request.
+        // Step 1: Read the authenticated user's email from the JWT token.
         String userEmail = getCurrentUserEmail();
 
-        // Step 2: Look up the full User record in the database by their email.
-        // If for any reason the user doesn't exist (e.g. was deleted after login),
-        // throw a RuntimeException to trigger a 500 error response.
+        // Step 2: Look up the full User record in the database by email.
+        // Throws ResourceNotFoundException (→ 404) if the user no longer exists.
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
-        // Step 3: Log that the profile was successfully fetched.
-        // This is useful for auditing and debugging in server logs.
+        // Step 3: Log the profile fetch for audit trail.
         log.info("Profile fetched for: {}", userEmail);
 
-        // Step 4: Convert the User entity to a UserDTO (excludes sensitive data
-        // like the password hash) and return it wrapped in a 200 OK response.
+        // Step 4: Convert to DTO (strips sensitive fields) and return 200 OK.
         return ResponseEntity.ok(mapToUserDTO(user));
     }
 
@@ -106,44 +95,41 @@ public class UserController {
     // =========================================================================
 
     /**
-     * Update the currently authenticated user's profile.
+     * Update the display name of the currently authenticated user.
      *
-     * Only firstName and lastName can be updated through this endpoint.
-     * Email and phone number are considered immutable account identifiers
-     * (changing them would require additional verification steps).
-     * The password is managed separately via a dedicated change-password endpoint.
+     * Only firstName and lastName are editable here. Email is the login identifier
+     * and cannot be changed without re-verification. Password changes go through
+     * a dedicated endpoint (POST /api/auth/change-password) for security reasons.
      *
      * Example: PUT /api/users/me
-     * Body: { "firstName": "Jane", "lastName": "Doe" }
+     * Body: { "firstName": "Jane", "lastName": "Smith" }
      *
-     * @param userDTO the updated profile data from the request body
+     * @param userDTO the updated name fields from the request body
      * @return 200 OK with the updated UserDTO
      */
     @PutMapping("/me")
     public ResponseEntity<UserDTO> updateMyProfile(@RequestBody UserDTO userDTO) {
 
-        // Step 1: Get the email address of the currently logged-in user from JWT.
+        // Step 1: Identify who is making this request via their JWT token.
         String userEmail = getCurrentUserEmail();
 
-        // Step 2: Fetch the existing User record from the database.
-        // We fetch the existing record so we can update only specific fields —
-        // we never want to overwrite the entire user record from raw client input.
+        // Step 2: Fetch the current User record from the database.
+        // We always fetch first — never trust the client to send a full valid entity.
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
-        // Step 3: Update ONLY the firstName and lastName fields.
-        // We intentionally do NOT update email, phoneNumber, passwordHash, or createdAt
-        // here — those require special handling (verification, hashing, etc.).
+        // Step 3: Apply only the allowed updates — firstName and lastName.
+        // We do NOT touch email, phoneNumber, passwordHash, or createdAt.
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
 
-        // Step 4: Save the updated User back to the database.
+        // Step 4: Persist the change to the database.
         User savedUser = userRepository.save(user);
 
-        // Step 5: Log the successful profile update.
+        // Step 5: Log the successful update.
         log.info("Profile updated for: {}", userEmail);
 
-        // Step 6: Convert the saved entity to a UserDTO and return 200 OK.
+        // Step 6: Return the updated profile as a DTO with 200 OK.
         return ResponseEntity.ok(mapToUserDTO(savedUser));
     }
 }
