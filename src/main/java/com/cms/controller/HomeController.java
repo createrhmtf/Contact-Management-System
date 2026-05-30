@@ -15,6 +15,7 @@ public class HomeController {
                 "message", "Contact Management System API is running",
                 "endpoints", List.of(
                         "POST /api/auth/register",
-                        "POST /api/auth/login"));
+                        "POST /api/auth/login",
+                        "PUT /api/auth/change-password"));
     }
 }

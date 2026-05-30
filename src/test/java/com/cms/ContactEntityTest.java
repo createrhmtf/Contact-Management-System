@@ -23,9 +23,10 @@ class ContactEntityTest {
     void setUp() {
         // Create a test User
         user = User.builder()
-                .fullName("Test User")
+                .firstName("Test")
+                .lastName("User")
                 .email("test@example.com")
-                .password("testPassword")
+                .passwordHash("testPassword")
                 .build();
 
         // Create a test Contact
@@ -48,7 +49,7 @@ class ContactEntityTest {
         assertEquals("Doe", contact.getLastName(), "Last name should match");
         assertEquals("123 Main Street", contact.getAddress(), "Address should match");
         assertNotNull(contact.getUser(), "Contact should be associated with a User");
-        assertEquals("Test User", contact.getUser().getFullName(), "User name should match");
+        assertEquals("Test", contact.getUser().getFirstName(), "User first name should match");
     }
 
     @Test

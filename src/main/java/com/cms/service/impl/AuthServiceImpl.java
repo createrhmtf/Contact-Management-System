@@ -1,6 +1,5 @@
 package com.cms.service.impl;
 
-import com.cms.exception.ResourceNotFoundException;
 import com.cms.model.dto.AuthResponse;
 import com.cms.model.dto.LoginRequest;
 import com.cms.model.dto.RegisterRequest;
@@ -8,60 +7,49 @@ import com.cms.model.entity.User;
 import com.cms.repository.UserRepository;
 import com.cms.security.JwtUtil;
 import com.cms.service.AuthService;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
-
-    public AuthServiceImpl(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            JwtUtil jwtUtil,
-            AuthenticationManager authenticationManager) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
-        this.authenticationManager = authenticationManager;
-    }
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email is already registered");
+            throw new IllegalArgumentException("Email already registered");
         }
         if (request.getPhoneNumber() != null
                 && !request.getPhoneNumber().isBlank()
                 && userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
-            throw new IllegalArgumentException("Phone number is already registered");
+            throw new IllegalArgumentException("Phone already registered");
         }
 
-        String fullName = request.getFirstName().trim() + " " + request.getLastName().trim();
-
         User user = User.builder()
-                .fullName(fullName)
-                .email(request.getEmail())
-                .phoneNumber(request.getPhoneNumber())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName().trim())
+                .lastName(trimToNull(request.getLastName()))
+                .email(request.getEmail().trim())
+                .phoneNumber(trimToNull(request.getPhoneNumber()))
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
 
         userRepository.save(user);
+        log.info("New user registered: {}", user.getEmail());
 
         String token = jwtUtil.generateToken(user.getEmail());
 
         return AuthResponse.builder()
                 .token(token)
-                .firstName(request.getFirstName())
+                .firstName(user.getFirstName())
                 .email(user.getEmail())
                 .build();
     }
@@ -70,41 +58,47 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequest request) {
         User user = resolveUser(request.getEmailOrPhone());
 
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            user.getEmail(),
-                            request.getPassword()));
-        } catch (AuthenticationException ex) {
-            throw new IllegalArgumentException("Invalid email/phone or password");
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Invalid password");
         }
 
+        log.info("User logged in: {}", user.getEmail());
         String token = jwtUtil.generateToken(user.getEmail());
 
         return AuthResponse.builder()
                 .token(token)
-                .firstName(extractFirstName(user.getFullName()))
+                .firstName(user.getFirstName())
                 .email(user.getEmail())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is wrong");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        log.info("Password changed for: {}", email);
     }
 
     private User resolveUser(String emailOrPhone) {
         String identifier = emailOrPhone.trim();
 
-        if (identifier.contains("@")) {
-            return userRepository.findByEmail(identifier)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        }
-
-        return userRepository.findByPhoneNumber(identifier)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByPhoneNumber(identifier))
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
-    private String extractFirstName(String fullName) {
-        if (fullName == null || fullName.isBlank()) {
-            return "";
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
-        int space = fullName.indexOf(' ');
-        return space > 0 ? fullName.substring(0, space) : fullName;
+        return value.trim();
     }
 }

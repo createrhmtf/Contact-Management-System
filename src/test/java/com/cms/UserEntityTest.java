@@ -23,18 +23,20 @@ class UserEntityTest {
     void testUserBuilderCreation() {
         // Arrange & Act: Create a User using builder pattern
         User newUser = User.builder()
-                .fullName("John Doe")
+                .firstName("John")
+                .lastName("Doe")
                 .email("john@example.com")
                 .phoneNumber("1234567890")
-                .password("securePassword123")
+                .passwordHash("securePassword123")
                 .build();
 
         // Assert: Verify all fields are set correctly
         assertNotNull(newUser, "User object should not be null");
-        assertEquals("John Doe", newUser.getFullName(), "Full name should match");
+        assertEquals("John", newUser.getFirstName(), "First name should match");
+        assertEquals("Doe", newUser.getLastName(), "Last name should match");
         assertEquals("john@example.com", newUser.getEmail(), "Email should match");
         assertEquals("1234567890", newUser.getPhoneNumber(), "Phone number should match");
-        assertEquals("securePassword123", newUser.getPassword(), "Password should match");
+        assertEquals("securePassword123", newUser.getPasswordHash(), "Password hash should match");
     }
 
     @Test
@@ -42,9 +44,10 @@ class UserEntityTest {
     void testUserEmailIsNotNull() {
         // Arrange & Act: Create a User with a valid email using builder pattern
         User newUser = User.builder()
-                .fullName("Jane Smith")
+                .firstName("Jane")
+                .lastName("Smith")
                 .email("jane@example.com")
-                .password("password123")
+                .passwordHash("password123")
                 .build();
 
         // Assert: Email should not be null
@@ -56,16 +59,18 @@ class UserEntityTest {
     @DisplayName("Should set and retrieve User fields using setter methods")
     void testUserSettersAndGetters() {
         // Arrange: Set values using setters
-        user.setFullName("Alice Johnson");
+        user.setFirstName("Alice");
+        user.setLastName("Johnson");
         user.setEmail("alice@example.com");
         user.setPhoneNumber("9876543210");
-        user.setPassword("myPassword456");
+        user.setPasswordHash("myPassword456");
 
         // Act & Assert: Verify values using getters
-        assertEquals("Alice Johnson", user.getFullName(), "Full name should be set correctly");
+        assertEquals("Alice", user.getFirstName(), "First name should be set correctly");
+        assertEquals("Johnson", user.getLastName(), "Last name should be set correctly");
         assertEquals("alice@example.com", user.getEmail(), "Email should be set correctly");
         assertEquals("9876543210", user.getPhoneNumber(), "Phone number should be set correctly");
-        assertEquals("myPassword456", user.getPassword(), "Password should be set correctly");
+        assertEquals("myPassword456", user.getPasswordHash(), "Password hash should be set correctly");
     }
 
     @Test
@@ -73,15 +78,17 @@ class UserEntityTest {
     void testCreateMultipleUsers() {
         // Arrange & Act: Create two different users
         User user1 = User.builder()
-                .fullName("User One")
+                .firstName("User")
+                .lastName("One")
                 .email("user1@example.com")
-                .password("pass1")
+                .passwordHash("pass1")
                 .build();
 
         User user2 = User.builder()
-                .fullName("User Two")
+                .firstName("User")
+                .lastName("Two")
                 .email("user2@example.com")
-                .password("pass2")
+                .passwordHash("pass2")
                 .build();
 
         // Assert: Verify both users have different emails

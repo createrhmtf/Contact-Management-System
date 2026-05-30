@@ -14,13 +14,88 @@ IF OBJECT_ID(N'dbo.users', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.users (
         id BIGINT IDENTITY(1, 1) NOT NULL,
-        full_name NVARCHAR(255) NOT NULL,
+        first_name NVARCHAR(255) NOT NULL,
+        last_name NVARCHAR(255) NULL,
         email NVARCHAR(255) NOT NULL,
         phone_number NVARCHAR(255) NULL,
-        password NVARCHAR(255) NOT NULL,
+        password_hash NVARCHAR(255) NOT NULL,
         created_at DATETIME2(6) NULL,
         CONSTRAINT pk_users PRIMARY KEY (id)
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.users', N'first_name') IS NULL
+BEGIN
+    ALTER TABLE dbo.users ADD first_name NVARCHAR(255) NULL;
+
+    IF COL_LENGTH(N'dbo.users', N'full_name') IS NOT NULL
+    BEGIN
+        EXEC sp_executesql N'
+            UPDATE dbo.users
+            SET first_name =
+                CASE
+                    WHEN CHARINDEX(N'' '', LTRIM(RTRIM(full_name))) > 0
+                        THEN LEFT(LTRIM(RTRIM(full_name)), CHARINDEX(N'' '', LTRIM(RTRIM(full_name))) - 1)
+                    ELSE LTRIM(RTRIM(full_name))
+                END;';
+    END;
+
+    EXEC sp_executesql N'
+        UPDATE dbo.users
+        SET first_name = N''Unknown''
+        WHERE first_name IS NULL OR LTRIM(RTRIM(first_name)) = N'''';';
+
+    ALTER TABLE dbo.users ALTER COLUMN first_name NVARCHAR(255) NOT NULL;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.users', N'last_name') IS NULL
+BEGIN
+    ALTER TABLE dbo.users ADD last_name NVARCHAR(255) NULL;
+
+    IF COL_LENGTH(N'dbo.users', N'full_name') IS NOT NULL
+    BEGIN
+        EXEC sp_executesql N'
+            UPDATE dbo.users
+            SET last_name =
+                NULLIF(
+                    LTRIM(SUBSTRING(
+                        LTRIM(RTRIM(full_name)),
+                        CHARINDEX(N'' '', LTRIM(RTRIM(full_name)) + N'' '') + 1,
+                        LEN(LTRIM(RTRIM(full_name))))),
+                    N'''');';
+    END;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.users', N'password_hash') IS NULL
+BEGIN
+    ALTER TABLE dbo.users ADD password_hash NVARCHAR(255) NULL;
+
+    IF COL_LENGTH(N'dbo.users', N'password') IS NOT NULL
+    BEGIN
+        EXEC sp_executesql N'UPDATE dbo.users SET password_hash = password;';
+    END;
+
+    EXEC sp_executesql N'
+        UPDATE dbo.users
+        SET password_hash = N''PASSWORD_RESET_REQUIRED''
+        WHERE password_hash IS NULL OR password_hash = N'''';';
+
+    ALTER TABLE dbo.users ALTER COLUMN password_hash NVARCHAR(255) NOT NULL;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.users', N'full_name') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.users DROP COLUMN full_name;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.users', N'password') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.users DROP COLUMN password;
 END;
 GO
 
