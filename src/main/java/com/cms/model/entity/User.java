@@ -1,46 +1,47 @@
 package com.cms.model.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
+import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Entity
+@Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
-    @Column(name = "full_name")
-    private String fullName;
+    @Column(nullable = false)
+    private String firstName;
 
-    @Email
-    @Column(unique = true, nullable = false)
+    private String lastName;
+
+    @Column(unique = true)
     private String email;
 
-    @Column(name = "phone_number", unique = true)
+    @Column(unique = true)
     private String phoneNumber;
 
-    @NotBlank
-    private String password;
+    @Column(nullable = false)
+    private String passwordHash;
 
-    @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Contact> contacts;
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Contact> contacts = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
