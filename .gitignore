@@ -1,1 +1,17 @@
-dist/) 
+# Local application configuration
+src/main/resources/application.properties
+
+# Maven build output
+target/
+
+# Runtime logs
+logs/
+*.log
+
+# Editor files
+.idea/
+.vscode/
+*.iml
+
+# Frontend build output
+dist/

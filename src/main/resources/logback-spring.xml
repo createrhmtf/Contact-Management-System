@@ -8,8 +8,8 @@
 
     <!-- Console Appender: Outputs logs to VS Code terminal with colors and formatting -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <!-- Enable color output in the console -->
-        <withJansi>true</withJansi>
+        <!-- Keep console output portable without the optional Jansi dependency -->
+        <withJansi>false</withJansi>
         
         <!-- Define how the log message should be formatted -->
         <encoder>
