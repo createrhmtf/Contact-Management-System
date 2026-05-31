@@ -58,7 +58,6 @@ public class JwtFilter extends OncePerRequestFilter {
                 }
             }
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ignored) {
-            // Invalid tokens are treated as unauthenticated requests.
         }
 
         filterChain.doFilter(request, response);

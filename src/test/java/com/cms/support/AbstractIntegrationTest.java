@@ -8,9 +8,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Base class for full-context API integration tests (H2 in-memory via {@code test} profile).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

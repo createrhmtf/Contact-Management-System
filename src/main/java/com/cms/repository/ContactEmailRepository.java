@@ -6,7 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ContactEmailRepository extends JpaRepository<ContactEmail, Long> {
-    
-    // Deletes all email records associated with a specific contact ID
+
     void deleteByContactId(Long contactId);
 }

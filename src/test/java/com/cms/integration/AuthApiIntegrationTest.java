@@ -90,7 +90,7 @@ class AuthApiIntegrationTest extends AbstractIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error").value("Email already registered"));
+                    .andExpect(jsonPath("$.message").value("Email already registered"));
         }
 
         @Test
@@ -182,7 +182,7 @@ class AuthApiIntegrationTest extends AbstractIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error").value("Invalid password"));
+                    .andExpect(jsonPath("$.message").value("Invalid password"));
         }
 
         @Test
@@ -196,7 +196,7 @@ class AuthApiIntegrationTest extends AbstractIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error").value("User not found"));
+                    .andExpect(jsonPath("$.message").value("User not found"));
         }
     }
 
@@ -262,7 +262,7 @@ class AuthApiIntegrationTest extends AbstractIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(changeRequest)))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error").value("Current password is wrong"));
+                    .andExpect(jsonPath("$.message").value("Current password is wrong"));
         }
     }
 }

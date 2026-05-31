@@ -1,8 +1,5 @@
 package com.cms.support;
 
-/**
- * Shared constants for automated tests (TC-* traceability in test display names).
- */
 public final class TestConstants {
 
     public static final String VALID_PASSWORD = "secret12";

@@ -5,9 +5,6 @@ import com.cms.model.dto.LoginRequest;
 import com.cms.model.dto.RegisterRequest;
 import com.cms.model.entity.User;
 
-/**
- * Builds consistent request and entity payloads for tests.
- */
 public final class TestDataFactory {
 
     private TestDataFactory() {

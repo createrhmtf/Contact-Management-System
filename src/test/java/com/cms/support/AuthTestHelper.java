@@ -10,9 +10,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Registers a user via the API and returns a JWT for secured endpoint tests.
- */
 public final class AuthTestHelper {
 
     private AuthTestHelper() {
