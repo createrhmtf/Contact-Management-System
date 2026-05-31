@@ -24,8 +24,10 @@ public class Contact {
     @EqualsAndHashCode.Exclude
     private User user;
 
+    @Column(name = "first_name")
     private String firstName;
     
+    @Column(name = "last_name")
     private String lastName;
     
     private String title;
@@ -36,9 +38,10 @@ public class Contact {
     
     private String notes;
 
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "contact", cascade = CascadeType.ALL, orphanRemoval = true)

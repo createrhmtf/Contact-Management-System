@@ -20,6 +20,7 @@ public class ContactPhone {
 
     private String label;
 
+    @Column(name = "is_primary")
     private Boolean isPrimary;
 
     @ManyToOne(fetch = FetchType.LAZY)
