@@ -208,6 +208,3 @@ The repository is compliant with standard static analysis and code quality gates
 - **QA-005 (Low)**: Configured Git line ending rules (`.gitattributes`) to auto-enforce standard `LF` line breaks across all platforms, resolving Windows CRLF warning alerts.
 - **QA-006 (Low)**: Discarded dummy frontend notification forms that did not call APIs.
 
-## 📝 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
